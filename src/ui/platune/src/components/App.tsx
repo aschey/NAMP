@@ -1,5 +1,5 @@
 import { wrapGrid } from 'animate-css-grid';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, createContext, useMemo, useContext } from 'react';
 import { Song } from '../models/song';
 import { isLight } from '../themes/colorMixer';
 import { darkTheme } from '../themes/dark';
@@ -15,23 +15,27 @@ import { getJson, putJson } from '../fetchUtil';
 import { toastSuccess } from '../appToaster';
 import { SongTag } from '../models/songTag';
 import { Search } from '../models/search';
+import { batch, useDispatch, useSelector } from 'react-redux';
+import { fetchSongs, selectSongs } from '../state/songs';
+import { useAppDispatch } from '../state/store';
+import { addSongsToTag, fetchTags } from '../state/songs';
+import { GridType } from '../enums/gridType';
+import { ThemeContextProvider } from '../state/themeContext';
 
 const themeName = 'dark';
-export const theme = darkTheme;
 applyTheme(themeName);
 
 const App: React.FC<{}> = () => {
-  const [selectedGrid, setSelectedGrid] = useState('song');
-  const [themeDetails, setThemeDetails] = useState(isLight(theme.backgroundMain));
   const [sidePanelWidth, setSidePanelWidth] = useState(0);
   const [gridCols, setGridCols] = useState(`0px ${window.innerWidth}px`);
   const [gridClasses, setGridClasses] = useState('grid');
-  const [songs, setSongs] = useState<Song[]>([]);
   const [queuedSongs, setQueuedSongs] = useState<Song[]>([]);
   const [gridMargin, setGridMargin] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [songTags, setSongTags] = useState<SongTag[]>([]);
-  const [selectedSearch, setSelectedSearch] = useState<Search | null>(null);
+  const [selectedGrid, setSelectedGrid] = useState(GridType.Song);
+
+  const dispatch = useAppDispatch();
+  const songs = useSelector(selectSongs);
 
   const getWidth = useCallback(() => window.innerWidth - gridMargin, [gridMargin]);
   const getHeight = () => window.innerHeight - 110;
@@ -40,12 +44,6 @@ const App: React.FC<{}> = () => {
   const [height, setHeight] = useState(getHeight());
 
   const gridRef = React.createRef<HTMLDivElement>();
-
-  const updateTheme = (newThemeName: string) => {
-    applyTheme(newThemeName);
-    const newTheme = newThemeName === 'light' ? lightTheme : darkTheme;
-    setThemeDetails(isLight(newTheme.backgroundMain));
-  };
 
   const debounced = _.debounce(async () => {
     setWidth(getWidth());
@@ -103,84 +101,66 @@ const App: React.FC<{}> = () => {
 
   const onDragEnd = async ({ source, destination, draggableId }: DropResult) => {
     if (source.droppableId === 'mainGrid' && destination?.droppableId?.startsWith('tag-')) {
-      const tagId = destination.droppableId.split('-')[1];
+      const tagId = parseInt(destination.droppableId.split('-')[1]);
+      let songIds: number[];
       if (draggableId.startsWith('album-')) {
         let albumKey = draggableId.replace('album-', '');
-        let albumSongs = songs.filter(s => `${s.albumArtist} ${s.album}` === albumKey).map(s => s.id);
-        await putJson(`/tags/${tagId}/addSongs`, albumSongs);
+        songIds = songs.filter(s => `${s.albumArtist} ${s.album}` === albumKey).map(s => s.id);
       } else if (selectedFiles.includes(draggableId)) {
-        const songIds = songs.filter(s => selectedFiles.includes(s.path)).map(s => s.id);
-        await putJson(`/tags/${tagId}/addSongs`, songIds);
+        songIds = songs.filter(s => selectedFiles.includes(s.path)).map(s => s.id);
       } else {
-        const songIds = songs.filter(s => draggableId == s.path).map(s => s.id);
-        await putJson(`/tags/${tagId}/addSongs`, songIds);
+        songIds = songs.filter(s => draggableId === s.path).map(s => s.id);
       }
+      dispatch(addSongsToTag({ tagId, songIds }));
+
       toastSuccess();
-      const tags = await getJson<SongTag[]>('/tags');
-      setSongTags(tags);
-      const refreshedSongs = await getJson<Song[]>('/songs');
-      setSongs(refreshedSongs);
     }
   };
 
   const onBeforeDragStart = (initial: DragStart) => {
     if (initial.source.droppableId === 'mainGrid') {
-      if (selectedFiles.length && selectedFiles.indexOf(initial.draggableId) == -1) {
+      if (selectedFiles.length && selectedFiles.indexOf(initial.draggableId) === -1) {
         setSelectedFiles([]);
       }
     }
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
-      <MainNavBar
-        sidePanelWidth={sidePanelWidth}
-        setSidePanelWidth={setSidePanelWidth}
-        selectedGrid={selectedGrid}
-        setSelectedGrid={setSelectedGrid}
-        updateTheme={updateTheme}
-        isLight={themeDetails}
-        songs={songs}
-        setSongs={setSongs}
-        selectedSearch={selectedSearch}
-        setSelectedSearch={setSelectedSearch}
-      />
-      <div
-        ref={gridRef}
-        className={gridClasses}
-        style={{
-          paddingTop: 40,
-          display: 'grid',
-          gridTemplateRows: `${height}px 70px`,
-          gridTemplateColumns: gridCols,
-        }}
-      >
-        <div>
-          <div style={{ display: sidePanelWidth > 0 ? 'block' : 'none' }}>
-            <QueueGrid
-              queuedSongs={queuedSongs}
-              isLightTheme={themeDetails}
-              songTags={songTags}
-              setSongTags={setSongTags}
-              setSongs={setSongs}
-              setSelectedSearch={setSelectedSearch}
-            />
-          </div>
-        </div>
-        <SongGrid
+    <ThemeContextProvider>
+      <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
+        <MainNavBar
+          sidePanelWidth={sidePanelWidth}
+          setSidePanelWidth={setSidePanelWidth}
           selectedGrid={selectedGrid}
-          isLightTheme={themeDetails}
-          width={width}
-          height={height}
-          songs={songs}
-          setSongs={setSongs}
-          queuedSongs={queuedSongs}
-          setQueuedSongs={setQueuedSongs}
-          selectedFiles={selectedFiles}
-          setSelectedFiles={setSelectedFiles}
+          setSelectedGrid={setSelectedGrid}
         />
-      </div>
-    </DragDropContext>
+        <div
+          ref={gridRef}
+          className={gridClasses}
+          style={{
+            paddingTop: 40,
+            display: 'grid',
+            gridTemplateRows: `${height}px 70px`,
+            gridTemplateColumns: gridCols,
+          }}
+        >
+          <div>
+            <div style={{ display: sidePanelWidth > 0 ? 'block' : 'none' }}>
+              <QueueGrid queuedSongs={queuedSongs} />
+            </div>
+          </div>
+          <SongGrid
+            width={width}
+            height={height}
+            queuedSongs={queuedSongs}
+            setQueuedSongs={setQueuedSongs}
+            selectedFiles={selectedFiles}
+            setSelectedFiles={setSelectedFiles}
+            selectedGrid={selectedGrid}
+          />
+        </div>
+      </DragDropContext>
+    </ThemeContextProvider>
   );
 };
 

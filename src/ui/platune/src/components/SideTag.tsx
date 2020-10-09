@@ -1,73 +1,75 @@
-import { Button, Icon, Menu, MenuItem, Popover, Tag, Text } from '@blueprintjs/core';
-import React from 'react';
+import { Button, Icon, Menu, MenuItem, Popover, PopoverInteractionKind, Tag, Text } from '@blueprintjs/core';
+import React, { useState } from 'react';
 import { toastSuccess } from '../appToaster';
 import { deleteJson, getJson } from '../fetchUtil';
 import { EditSongTag } from '../models/editSongTag';
 import { Search } from '../models/search';
 import { SongTag } from '../models/songTag';
+import { useAppDispatch } from '../state/store';
+import { setFilterTag, deleteTag, fetchSongs, selectChosenTags, setFilters } from '../state/songs';
 import { hexToRgb, isLight, shadeColorRgb } from '../themes/colorMixer';
-import { theme } from './App';
 import { FlexCol } from './FlexCol';
 import { FlexRow } from './FlexRow';
+import { useSelector } from 'react-redux';
+import { useThemeContext } from '../state/themeContext';
 
 interface SideTagProps {
   tag: SongTag;
   setTag: (tag: EditSongTag) => void;
   setIsPopupOpen: (isPopupOpen: boolean) => void;
-  setSongTags: (songTags: SongTag[]) => void;
   isDraggingOver: boolean;
   isLightTheme: boolean;
-  setSelectedSearch: (selectedSearch: Search) => void;
 }
-export const SideTag: React.FC<SideTagProps> = ({
-  tag,
-  setTag,
-  setIsPopupOpen,
-  setSongTags,
-  isDraggingOver,
-  isLightTheme,
-  setSelectedSearch,
-}) => {
+export const SideTag: React.FC<SideTagProps> = ({ tag, setTag, setIsPopupOpen, isDraggingOver, isLightTheme }) => {
+  const dispatch = useAppDispatch();
+  const selectedTagIds = useSelector(selectChosenTags);
+
+  const [hovered, setHovered] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const { themeVal } = useThemeContext();
+
   const editTag = () => {
     setTag(tag);
     setIsPopupOpen(true);
   };
 
-  const deleteTag = async () => {
-    await deleteJson(`/tags/${tag.id}`);
-    getJson<SongTag[]>('/tags').then(setSongTags);
+  const onDeleteTag = async () => {
+    dispatch(deleteTag(tag.id));
     toastSuccess();
   };
 
-  const color = isDraggingOver ? hexToRgb(theme.intentPrimary).join(',') : tag.color;
+  const color = isDraggingOver ? hexToRgb(themeVal.intentPrimary).join(',') : tag.color;
 
   return (
     <Tag
-      onDoubleClick={() =>
-        setSelectedSearch({
-          entryValue: tag.name,
-          entryType: 'tag',
-          artist: null,
-          correlationId: tag.id,
-          tagColor: tag.color,
-        })
-      }
+      onClick={e => {
+        dispatch(setFilterTag({ tagId: tag.id, append: e.ctrlKey, toggle: true }));
+      }}
+      onMouseOver={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       minimal
       style={{
         border: `1px solid rgba(${color}, 0.25)`,
-        backgroundColor: `rgba(${color}, 0.15)`,
+        backgroundColor: `rgba(${color}, ${selectedTagIds?.includes(tag.id) ? 0.5 : hovered ? 0.3 : 0.15})`,
         color: `rgba(${shadeColorRgb(color, isLightTheme ? -50 : 100)}, 1)`,
         boxShadow: isDraggingOver ? `inset 0 0 8px 8px rgba(${color}, 0.6)` : undefined,
+        cursor: hovered ? 'pointer' : undefined,
       }}
     >
       {
         <FlexRow>
           <FlexCol>
             <Popover
+              isOpen={popoverOpen}
+              onInteraction={(state, e) => {
+                e?.preventDefault();
+                e?.stopPropagation();
+                setPopoverOpen(state);
+              }}
               content={
                 <Menu style={{ minWidth: 100 }}>
                   <MenuItem icon='edit' text='Edit' onClick={editTag} />
-                  <MenuItem icon='delete' text='Delete' onClick={deleteTag} />
+                  <MenuItem icon='delete' text='Delete' onClick={onDeleteTag} />
                 </Menu>
               }
             >

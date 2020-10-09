@@ -9,34 +9,34 @@ import { DirtyCheck } from './DirtyCheck';
 import { getJson, postJson, putJson } from '../fetchUtil';
 import { toastSuccess } from '../appToaster';
 import { SongTag } from '../models/songTag';
-import { theme } from './App';
 import { formatRgb } from '../util';
 import { EditSongTag } from '../models/editSongTag';
 import { Song } from '../models/song';
+import { useAppDispatch } from '../state/store';
+import { fetchSongs } from '../state/songs';
+import { addEditTag, fetchTags } from '../state/songs';
+import { batch } from 'react-redux';
+import { useThemeContext } from '../state/themeContext';
 
 interface AddEditTagProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  setSongTags: (songTags: SongTag[]) => void;
   tag: EditSongTag;
   setTag: (tag: EditSongTag) => void;
-  setSongs: (songs: Song[]) => void;
 }
-export const AddEditTag: React.FC<AddEditTagProps> = ({ isOpen, setIsOpen, setSongTags, tag, setTag, setSongs }) => {
+export const AddEditTag: React.FC<AddEditTagProps> = ({ isOpen, setIsOpen, tag, setTag }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const dispatch = useAppDispatch();
+  const { themeVal } = useThemeContext();
 
   const onSave = async () => {
-    if (tag.id === null) {
-      await postJson('/tags', tag);
-    } else {
-      await putJson(`/tags/${tag.id}`, tag);
-    }
-    const tags = await getJson<SongTag[]>('/tags');
-    setSongTags(tags);
-    const songs = await getJson<Song[]>('/songs');
-    setSongs(songs);
-    toastSuccess();
     setIsOpen(false);
+    batch(async () => {
+      await dispatch(addEditTag(tag));
+      dispatch(fetchSongs());
+    });
+
+    toastSuccess();
   };
 
   return (
@@ -122,7 +122,7 @@ export const AddEditTag: React.FC<AddEditTagProps> = ({ isOpen, setIsOpen, setSo
                 }}
                 disableAlpha={true}
                 onChange={newColor => setTag({ ...tag, color: formatRgb(newColor.rgb) })}
-                presetColors={theme.suggestedTagColors}
+                presetColors={themeVal.suggestedTagColors}
               />
             </div>
           ) : null}

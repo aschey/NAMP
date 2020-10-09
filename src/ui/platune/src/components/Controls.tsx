@@ -1,12 +1,12 @@
-import { Button, Icon, Intent } from '@blueprintjs/core';
+import { Button, Icon, Intent, Text } from '@blueprintjs/core';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useObservable } from 'rxjs-hooks';
 import { audioQueue, PlaybackState } from '../audio';
 import { Song } from '../models/song';
+import { useThemeContext } from '../state/themeContext';
 import { hexToRgb, isLight, shadeColor } from '../themes/colorMixer';
 import { formatMs } from '../util';
-import { theme } from './App';
 import { FlexCol } from './FlexCol';
 import { FlexRow } from './FlexRow';
 import { SongProgress } from './SongProgress';
@@ -25,8 +25,9 @@ export const Controls: React.FC<ControlProps> = ({ onPlay, onPrevious, playingSo
   const playbackState = useObservable(() => audioQueue.playbackState);
   const canvasRef = React.createRef<HTMLCanvasElement>();
   const visualizerTimeout = useRef<NodeJS.Timeout>();
+  const { isLightTheme, themeVal } = useThemeContext();
 
-  const songColorAdjust = isLight(theme.backgroundMain) ? 150 : -40;
+  const songColorAdjust = isLightTheme ? 150 : -40;
 
   const stopVisualizer = useCallback(() => {
     if (visualizerTimeout.current) {
@@ -53,7 +54,7 @@ export const Controls: React.FC<ControlProps> = ({ onPlay, onPrevious, playingSo
           canvasCtx.fillStyle = 'rgba(0,0,0,0)';
 
           canvasCtx.fillRect(0, 0, width, height);
-          canvasCtx.strokeStyle = `rgba(${hexToRgb(theme.visualizerColor)}, 0.5)`;
+          canvasCtx.strokeStyle = `rgba(${hexToRgb(themeVal.visualizerColor)}, 0.5)`;
           canvasCtx.lineWidth = 2;
           canvasCtx.beginPath();
           const sliceWidth = (width * 1.0) / dataLength;
@@ -90,7 +91,7 @@ export const Controls: React.FC<ControlProps> = ({ onPlay, onPrevious, playingSo
 
   useEffect(() => {
     if (songMillis !== null && progress !== null) {
-      setColorAdjust(shadeColor(theme.songTimeColor, (progress / songMillis) * songColorAdjust));
+      setColorAdjust(shadeColor(themeVal.songTimeColor, (progress / songMillis) * songColorAdjust));
     }
   }, [progress, songMillis, songColorAdjust]);
 
@@ -116,7 +117,7 @@ export const Controls: React.FC<ControlProps> = ({ onPlay, onPrevious, playingSo
           <SongProgress />
         </div>
 
-        <FlexRow style={{ marginLeft: 10 }}>
+        <FlexRow style={{ marginLeft: 10, overflow: 'hidden' }}>
           {playingSong?.hasArt ? (
             <img
               src={`http://localhost:5000/albumArt?songId=${playingSong.id}`}
@@ -125,16 +126,22 @@ export const Controls: React.FC<ControlProps> = ({ onPlay, onPrevious, playingSo
               height={50}
             />
           ) : null}
-          <div style={{ paddingLeft: 10, paddingRight: '10%' }}>
-            <FlexRow>{playingSong?.name}</FlexRow>
-            <FlexRow>{playingSong?.album}</FlexRow>
-            <FlexRow>{playingSong?.artist}</FlexRow>
+          <div style={{ paddingLeft: 10, overflow: 'hidden' }}>
+            <FlexRow>
+              <Text ellipsize>{playingSong?.name}</Text>
+            </FlexRow>
+            <FlexRow>
+              <Text ellipsize>{playingSong?.album}</Text>
+            </FlexRow>
+            <FlexRow>
+              <Text ellipsize>{playingSong?.artist}</Text>
+            </FlexRow>
           </div>
           <FlexCol>
             {(songMillis ?? 0) > 0 ? (
-              <FlexRow style={{ fontSize: 16 }}>
+              <FlexRow style={{ fontSize: 16, paddingLeft: 10, paddingRight: 10 }}>
                 <div style={{ color: coloradjust }}>{formatMs(progress ?? 0)}</div>
-                <div style={{ color: shadeColor(theme.songTimeColor, songColorAdjust) }}>
+                <div style={{ color: shadeColor(themeVal.songTimeColor, songColorAdjust) }}>
                   /{formatMs(songMillis ?? 0)}
                 </div>
               </FlexRow>
