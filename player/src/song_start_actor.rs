@@ -43,21 +43,21 @@ impl SongStartActor {
 
         thread::sleep(Duration::from_millis(50));
         subscriber
-            .try_send(PlayerCommand::SetUri {
+            .send(PlayerCommand::SetUri {
                 id: player_id,
                 item: self.next_song.clone(),
             })
+            .await
             .unwrap();
 
-        clock_id
-            .wait_async(move |_, _, _| {
-                subscriber
-                    .try_send(PlayerCommand::Play { id: player_id })
-                    .unwrap();
+        subscriber
+            .send(PlayerCommand::SchedulePlay {
+                id: player_id,
+                clock_id,
             })
+            .await
             .unwrap();
-
-        self.clock_id = Some(clock_id);
+        //self.clock_id = Some(clock_id);
     }
 }
 

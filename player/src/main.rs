@@ -13,7 +13,7 @@ use futures::{
     future::{join_all, Flatten, JoinAll},
     FutureExt,
 };
-use gst::{Clock, ClockExt, SystemClock};
+use gst::{prelude::ObjectExt, Clock, ClockExt, SystemClock};
 use gstreamer as gst;
 use gstreamer::{glib, prelude::Cast, Pipeline};
 use gstreamer_app as gst_app;
@@ -97,6 +97,9 @@ fn make_player_task<T: PlayerBackend + Send + Clone + 'static>(
             match msg {
                 PlayerCommand::Play { id } => {
                     player.play(id);
+                }
+                PlayerCommand::SchedulePlay { id, clock_id } => {
+                    player.schedule_play(id, clock_id);
                 }
                 PlayerCommand::PlayIfFirst { id } => {
                     player.play_if_first(id);

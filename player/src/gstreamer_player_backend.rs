@@ -1,6 +1,7 @@
 use gstreamer::{
-    glib::SignalHandlerId, prelude::Cast, Clock, ClockTime, ElementExt, Pipeline, PipelineExt,
-    SystemClock,
+    glib::SignalHandlerId,
+    prelude::{Cast, ObjectExt},
+    Clock, ClockExt, ClockId, ClockTime, ElementExt, Pipeline, PipelineExt, SystemClock,
 };
 use gstreamer_player::{Player, PlayerGMainContextSignalDispatcher, PlayerSignalDispatcher};
 
@@ -17,6 +18,8 @@ impl GstreamerPlayer {
         let player = Player::new(None, Some(&dispatcher.upcast::<PlayerSignalDispatcher>()));
         let pipeline = player.get_pipeline().dynamic_cast::<Pipeline>().unwrap();
         pipeline.set_base_time(base_time);
+        pipeline.set_start_time(base_time);
+        pipeline.set_clock(Some(&SystemClock::obtain())).unwrap();
 
         GstreamerPlayer { player }
     }
@@ -26,6 +29,18 @@ impl PlayerBackend for GstreamerPlayer {
     fn play(&self) {
         println!("play");
         self.player.play();
+    }
+
+    fn schedule_play(&self, clock_id: ClockId) {
+        let player_weak = self.player.downgrade();
+        println!("scheduled for {:?}", clock_id.get_time());
+        clock_id
+            .wait_async(move |_, time, _| {
+                println!("time: {:?}", time);
+                player_weak.upgrade().unwrap().play();
+                println!("started playing");
+            })
+            .unwrap();
     }
 
     fn pause(&self) {

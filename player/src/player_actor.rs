@@ -40,6 +40,10 @@ impl<T: PlayerBackend + Send + Clone + 'static> PlayerActor<T> {
         self.players[id].play();
     }
 
+    pub fn schedule_play(&self, id: usize, clock_id: ClockId) {
+        self.players[id].schedule_play(clock_id);
+    }
+
     pub fn play_if_first(&mut self, id: usize) {
         println!("play if first");
         if self.position == 0 {
@@ -75,6 +79,7 @@ impl<T: PlayerBackend + Send + Clone + 'static> PlayerActor<T> {
             let duration = info.get_duration().nseconds().unwrap_or_default();
 
             if duration > 0 {
+                println!("Duration {:?}", duration);
                 player_tx.try_send(PlayerCommand::PlayIfFirst { id }).ok();
 
                 *loaded.borrow_mut() = true;
@@ -101,6 +106,7 @@ impl<T: PlayerBackend + Send + Clone + 'static> PlayerActor<T> {
 #[derive(Debug)]
 pub enum PlayerCommand {
     Play { id: usize },
+    SchedulePlay { id: usize, clock_id: ClockId },
     PlayIfFirst { id: usize },
     Pause { id: usize },
     SetUri { id: usize, item: QueueItem },

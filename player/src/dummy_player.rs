@@ -64,4 +64,8 @@ impl<'a> PlayerBackend for DummyPlayer<'a> {
     fn connect_state_changed(&self, f: FnPlayerState) -> SignalHandlerId {
         SignalHandlerId::from_glib(1)
     }
+
+    fn schedule_play(&self, clock_id: gstreamer::ClockId) {
+        todo!()
+    }
 }
