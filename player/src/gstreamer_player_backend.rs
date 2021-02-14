@@ -36,6 +36,7 @@ impl PlayerBackend for GstreamerPlayer {
         println!("scheduled for {:?}", clock_id.get_time());
         clock_id
             .wait_async(move |_, time, _| {
+                println!("actual time {:?}", SystemClock::obtain().get_time());
                 println!("time: {:?}", time);
                 player_weak.upgrade().unwrap().play();
                 println!("started playing");
