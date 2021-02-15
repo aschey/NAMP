@@ -27,7 +27,7 @@ impl GstreamerPlayer {
 
 impl PlayerBackend for GstreamerPlayer {
     fn play(&self) {
-        println!("play");
+        println!("play {:?}", SystemClock::obtain().get_time());
         self.player.play();
     }
 

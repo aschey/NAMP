@@ -4,7 +4,7 @@ use generic_array::{arr, ArrayLength, GenericArray};
 use gstreamer::{
     glib::clone::Downgrade,
     prelude::{Cast, ObjectExt},
-    ClockId, ClockTime,
+    ClockExt, ClockId, ClockTime, SystemClock,
 };
 use gstreamer_player::{PlayerMediaInfo, PlayerState};
 use tokio::sync::mpsc::Sender;
@@ -88,7 +88,12 @@ impl<T: PlayerBackend + Send + Clone + 'static> PlayerActor<T> {
 
         player.connect_media_info_updated(c);
         let c1 = Box::new(move |player_state: PlayerState, info: PlayerInfo| {
-            println!("{:?} {:?}", id, player_state);
+            println!(
+                "{:?} {:?} {:?}",
+                id,
+                player_state,
+                SystemClock::obtain().get_time()
+            );
             state_tx
                 .try_send(StateChanged {
                     player_id: id,
